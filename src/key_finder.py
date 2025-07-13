@@ -25,13 +25,116 @@ class KeyFinder:
     """
 
     @staticmethod
-    def find_private_key(min_range, max_range, target_address):
+    def calculate_iterations_and_time(start_range_hex, end_range_hex, operations_per_second=1000000):
+        """
+        Calculates the total number of iterations required and estimates the time needed.
+
+        Args:
+        start_range_hex (str): The start of the range in hexadecimal.
+        end_range_hex (str): The end of the range in hexadecimal.
+        iterations_per_second (int): The number of iterations that can be processed per second.
+
+        Returns:
+        tuple: (total_iterations, estimated_time_seconds, estimated_time_formatted)
+        """
+        start_range = int(start_range_hex, 16)
+        end_range = int(end_range_hex, 16)
+
+        total_iterations = end_range - start_range + 1
+        estimated_time_seconds = total_iterations / operations_per_second
+
+        years, remainder = divmod(estimated_time_seconds, 31536000)
+        days, remainder = divmod(remainder, 86400)
+        hours, remainder = divmod(remainder, 3600)
+        minutes, seconds = divmod(remainder, 60)
+
+        time_parts = []
+        if years > 0:
+            time_parts.append(f"{years:,.0f} years")
+        if days > 0:
+            time_parts.append(f"{days:.0f} days")
+        if hours > 0:
+            time_parts.append(f"{hours:.0f} hours")
+        if minutes > 0:
+            time_parts.append(f"{minutes:.0f} minutes")
+        if seconds > 0 or not time_parts:
+            time_parts.append(f"{seconds:.2f} seconds")
+
+        estimated_time_formatted = ", ".join(time_parts)
+
+        return total_iterations, estimated_time_seconds, estimated_time_formatted
+
+    @staticmethod
+    def calculate_iterations_and_time_with_bsgs(start_range_hex, end_range_hex, operations_per_second):
+        """
+            Calculates the total number of operations required for the Baby-step Giant-step (BSGS) algorithm
+            and estimates the time needed to complete the search.
+
+            This method uses the BSGS algorithm to estimate the computational effort required to search
+            through a given range of private keys. It calculates the number of operations based on the
+            square root of the interval size, which is characteristic of the BSGS algorithm's efficiency.
+
+            Args:
+            start_range_hex (str): The start of the private key range in hexadecimal.
+            end_range_hex (str): The end of the private key range in hexadecimal.
+            operations_per_second (int): The estimated number of operations that can be processed per second.
+                                         Defaults to 1,000,000 operations per second.
+
+            Returns:
+            tuple: A tuple containing three elements:
+                   - interval_size (int): The total number of possible keys in the given range.
+                   - estimated_time_seconds (float): The estimated time in seconds to complete the search.
+                   - estimated_time_formatted (str): A human-readable string representing the estimated time,
+                                                     formatted with appropriate units (years, days, hours, minutes, seconds).
+
+            Note:
+            - The actual time may vary depending on hardware capabilities and implementation efficiency.
+            - The BSGS algorithm provides a significant speedup compared to brute force methods,
+              with a time complexity of O(sqrt(n)) instead of O(n).
+            """
+        start_range = int(start_range_hex, 16)
+        end_range = int(end_range_hex, 16)
+
+        interval_size = end_range - start_range + 1
+
+        max_steps = 2 ** int(math.log2(math.sqrt(interval_size)))
+
+        total_operations = 2 * max_steps
+
+        estimated_time_seconds = total_operations / operations_per_second
+
+        years, remainder = divmod(estimated_time_seconds, 31536000)
+        days, remainder = divmod(remainder, 86400)
+        hours, remainder = divmod(remainder, 3600)
+        minutes, seconds = divmod(remainder, 60)
+
+        time_parts = []
+        if years > 0:
+            time_parts.append(f"{years:,.0f} years")
+        if days > 0:
+            time_parts.append(f"{days:.0f} days")
+        if hours > 0:
+            time_parts.append(f"{hours:.0f} hours")
+        if minutes > 0:
+            time_parts.append(f"{minutes:.0f} minutes")
+        if seconds > 0 or not time_parts:
+            time_parts.append(f"{seconds:.2f} seconds")
+
+        estimated_time_formatted = ", ".join(time_parts)
+
+        return interval_size, estimated_time_seconds, estimated_time_formatted
+
+    @staticmethod
+    def find_private_key(min_range_hex, max_range_hex, target_address):
         """Searches for the private key that corresponds to the target address."""
         start_time = time.time()
         keys_checked = 0
 
-        for private_key in range(min_range, max_range + 1):
-            private_key_hex = format(private_key, '064x')  # Converts the private key to hexadecimal
+        min_range = int(min_range_hex, 16)
+        max_range = int(max_range_hex, 16)
+
+        for private_key in range(min_range, max_range):
+            private_key_hex = format(private_key, '064x')  # Converte a chave privada para hexadecimal
             public_address = KeyFinder.find_public_key(private_key_hex)
 
             keys_checked += 1
@@ -40,9 +143,9 @@ class KeyFinder:
                 elapsed_time = time.time() - start_time
                 print(f"Keys checked: {keys_checked}, Elapsed time: {elapsed_time:.2f} seconds")
 
-            # Checks if the generated public address matches the target address
+            # Verifica se o endereço público gerado corresponde ao endereço alvo
             if public_address == target_address:
-                return private_key_hex  # Returns the found private key
+                return private_key_hex  # Retorna a chave privada encontrada
 
         return None
 
@@ -112,6 +215,8 @@ class KeyFinder:
         max_steps = 2 ** int(math.log2(math.sqrt(interval_size)))
 
         target_public_key_point = self.calculate_public_key_point(target_public_key)
+
+        print("target_public_key_point", target_public_key_point)
 
         start_time = time.time()
         total_steps_tried = 0
